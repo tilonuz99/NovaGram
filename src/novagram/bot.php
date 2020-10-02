@@ -9,6 +9,8 @@ class Bot {
 
     use methods;
 
+    const LICENSE = "NovaGram - An Object-Oriented PHP library for Telegram Bots".PHP_EOL."Copyright (c) 2020 Gaetano Sutera <https://github.com/skrtdev>";
+
     private string $token; // read-only
     private \stdClass $settings;
     private array $json;
@@ -18,6 +20,9 @@ class Bot {
     public array $raw_update; // read-only
     public int $id; // read-only
     public Database $database; // read-only
+
+    private $started = false;
+    private static $shown_license = false;
 
 
     public function __construct(string $token, array $settings = []) {
@@ -35,12 +40,15 @@ class Bot {
             "debug" => false,
             "disable_webhook" => false,
             "disable_ip_check" => false,
-            "exceptions" => true
+            "exceptions" => true,
+            "mode" => "webhook"
         ];
 
         foreach ($settings_array as $name => $default){
             $this->settings->{$name} ??= $default;
         }
+
+        if($this->settings->mode === "getUpdates") $this->settings->disable_webhook = true;
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
 
@@ -61,8 +69,107 @@ class Bot {
 
             $this->update = $this->JSONToTelegramObject($this->raw_update, "Update");
         }
-        else $this->settings->json_payload = false;
+        else{
+            $this->settings->json_payload = false;
+        }
 
+
+    }
+
+    public function addHandler(\Closure $handler){
+        $this->handler = $handler;
+    }
+
+    public function handleUpdate(Update $update){
+        $handler = $this->handler;
+        echo "INSIDE handleUpdate", "\n";
+        #var_dump($this->loop);
+        $handler($update);
+        return;
+    }
+
+    public function processUpdates($offset = 0){
+        #echo "INSIDE PROCESS UPDATES, $offset", "\n";
+        #sleep(1);
+        #return;
+        $async = false;
+        $async = true;
+        $updates = $this->getUpdates(['offset' => $offset, 'timeout' => 30]);
+        $promises = [];
+        $Bot = $this;
+        foreach ($updates as $update) {
+            $update = $this->JSONToTelegramObject($update, "Update");
+            #var_dump($update);
+            #print("received update".PHP_EOL);
+            if(!$async){
+                $handler = $this->handler;
+                $handler($update);
+            }
+            else{
+                $handler = $this->handler;
+                #echo "prima".PHP_EOL;
+
+                $pid = pcntl_fork();
+                if ($pid == -1) {
+                    die('could not fork');
+                } else if ($pid) {
+                    // we are the parent
+                    #echo "WE ARE THE PARENT: {$update->update_id}", "\n";
+                    #pcntl_wait($status); //Protect against Zombie children
+                    pcntl_wait($status, WNOHANG | WUNTRACED);
+                } else {
+                    // we are the child
+                    try{
+                        $handler($update);
+                    }
+                    catch(Exception $e){
+                        var_dump($e);
+                    }
+                    #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
+                    #var_dump(posix_kill(getmypid(), SIGKILL));
+                    exit;
+                }
+
+                #echo "\n\n\nDOPO\n\n\n\n";
+
+            }
+            $offset = $update->update_id+1;
+
+        }
+        return $offset;
+        exit;
+    }
+
+    public function showLicense(): void {
+        if(!$this->started){
+            print(self::LICENSE.PHP_EOL);
+            $this->started = true;
+        }
+    }
+
+    public function idle(){
+        $this->deleteWebhook();
+        if(!$this->started){
+            $this->showLicense();
+            while (true) {
+                #echo "WHILE TRUE: $offset", "\n";
+
+
+                $offset = $this->processUpdates($offset ?? 0);
+            }
+            $this->started = true;
+        }
+    }
+
+    public function __destruct(){
+        #return;
+        if($this->settings->mode === "getUpdates"){
+            return $this->idle();
+            $Bot = $this;
+            $this->loop->addTimer(0.01, function () use ($Bot) {
+                return $Bot->idle();
+            });
+        }
     }
 /*
     public function __call(string $name, array $arguments){
