@@ -89,6 +89,7 @@ class Bot {
 
     public function addHandler(\Closure $handler){
         $this->handler = $handler;
+        return $this->idle();
     }
 
     public function handleUpdate(Update $update){
@@ -112,7 +113,9 @@ class Bot {
             $update = $this->JSONToTelegramObject($update, "Update");
             if(!$async){
                 $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                $started = hrtime(true)/10**9;
                 $handler($update);
+                $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
             }
             else{
                 $pid = pcntl_fork();
@@ -126,6 +129,7 @@ class Bot {
                 else{
                     // we are the child
                     $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                    $started = hrtime(true)/10**9;
                     try{
                         $handler($update);
                     }
@@ -135,7 +139,7 @@ class Bot {
                     }
                     #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
                     #var_dump(posix_kill(getmypid(), SIGKILL));
-                    $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id]);
+                    $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                     exit;
                 }
 
@@ -162,7 +166,6 @@ class Bot {
             $this->logger->debug('Starting Bot');
             $this->showLicense();
             while (true) {
-                #echo "WHILE TRUE: $offset", "\n";
                 $offset = $this->processUpdates($offset ?? 0);
             }
             $this->started = true;
@@ -171,7 +174,7 @@ class Bot {
 
     public function __destruct(){
         #return;
-        if($this->settings->mode === "getUpdates"){
+        if($this->settings->mode === "getUpdates" and !$this->started){
             $this->logger->debug('Idling by destructor');
             return $this->idle();
         }
@@ -248,6 +251,7 @@ class Bot {
         $decoded =  json_decode($response, true);
 
         if($decoded['ok'] !== true){
+            $this->logger->debug("Response: ".$response);
             if($is_debug) throw new TelegramException("[DURING DEBUG] $method", $decoded, $data);
             if($this->settings->debug){
                 $this->APICall("sendMessage", ["chat_id" => $this->settings->debug, "text" => "<pre>".$method.PHP_EOL.PHP_EOL.print_r($data, true).PHP_EOL.PHP_EOL.print_r($decoded, true)."</pre>", "parse_mode" => "HTML"], false, true);
