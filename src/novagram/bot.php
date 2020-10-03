@@ -2,8 +2,12 @@
 
 namespace skrtdev\NovaGram;
 
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\FirePHPHandler;
 use skrtdev\Telegram\Exception as TelegramException;
 use skrtdev\Telegram\Update;
+
 
 class Bot {
 
@@ -25,7 +29,7 @@ class Bot {
     private static $shown_license = false;
 
 
-    public function __construct(string $token, array $settings = []) {
+    public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
         if(!Utils::isTokenValid($token)){
             throw new Exception("Not a valid Telegram Bot Token provided ($token)");
         }
@@ -33,6 +37,12 @@ class Bot {
         $this->id = Utils::getIDByToken($token);
         $this->settings = (object) $settings;
 
+        if(!isset($logger)){
+            $logger = new Logger("NovaGram");
+            $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
+            #$logger->info('Logger automatically replaced by a default one');
+        }
+        $this->logger = $logger;
 
         $settings_array = [
             "json_payload" => true,
@@ -41,7 +51,8 @@ class Bot {
             "disable_webhook" => false,
             "disable_ip_check" => false,
             "exceptions" => true,
-            "mode" => "webhook"
+            "mode" => "webhook",
+            "async" => true
         ];
 
         foreach ($settings_array as $name => $default){
@@ -92,41 +103,39 @@ class Bot {
         #echo "INSIDE PROCESS UPDATES, $offset", "\n";
         #sleep(1);
         #return;
-        $async = false;
-        $async = true;
-        $updates = $this->getUpdates(['offset' => $offset, 'timeout' => 30]);
-        $promises = [];
-        $Bot = $this;
+        $async = $this->settings->async;
+        $params = ['offset' => $offset, 'timeout' => 30];
+        $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
+        $updates = $this->getUpdates($params);
+        $handler = $this->handler;
         foreach ($updates as $update) {
             $update = $this->JSONToTelegramObject($update, "Update");
-            #var_dump($update);
-            #print("received update".PHP_EOL);
             if(!$async){
-                $handler = $this->handler;
+                $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
                 $handler($update);
             }
             else{
-                $handler = $this->handler;
-                #echo "prima".PHP_EOL;
-
                 $pid = pcntl_fork();
                 if ($pid == -1) {
                     die('could not fork');
-                } else if ($pid) {
+                }
+                elseif($pid){
                     // we are the parent
-                    #echo "WE ARE THE PARENT: {$update->update_id}", "\n";
-                    #pcntl_wait($status); //Protect against Zombie children
                     pcntl_wait($status, WNOHANG | WUNTRACED);
-                } else {
+                }
+                else{
                     // we are the child
+                    $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
                     try{
                         $handler($update);
                     }
-                    catch(Exception $e){
+                    catch(Throwable $e){
+                        echo "caught in child\n";
                         var_dump($e);
                     }
                     #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
                     #var_dump(posix_kill(getmypid(), SIGKILL));
+                    $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id]);
                     exit;
                 }
 
@@ -137,7 +146,6 @@ class Bot {
 
         }
         return $offset;
-        exit;
     }
 
     public function showLicense(): void {
@@ -149,12 +157,12 @@ class Bot {
 
     public function idle(){
         $this->deleteWebhook();
+        $this->logger->debug('Webhook deleted');
         if(!$this->started){
+            $this->logger->debug('Starting Bot');
             $this->showLicense();
             while (true) {
                 #echo "WHILE TRUE: $offset", "\n";
-
-
                 $offset = $this->processUpdates($offset ?? 0);
             }
             $this->started = true;
@@ -164,11 +172,8 @@ class Bot {
     public function __destruct(){
         #return;
         if($this->settings->mode === "getUpdates"){
+            $this->logger->debug('Idling by destructor');
             return $this->idle();
-            $Bot = $this;
-            $this->loop->addTimer(0.01, function () use ($Bot) {
-                return $Bot->idle();
-            });
         }
     }
 /*
@@ -176,6 +181,7 @@ class Bot {
         return $this->APICall($name, ...$arguments);
     }
 */
+
     private function methodHasParamater(string $method, string $parameter){
         return in_array($method, $this->json["require_params"][$parameter]);
     }
