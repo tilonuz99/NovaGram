@@ -11,7 +11,7 @@ use skrtdev\Prototypes\proto;
 
 class Bot {
 
-    use methods;
+    use Methods;
     use proto;
 
     const LICENSE = "NovaGram - An Object-Oriented PHP library for Telegram Bots".PHP_EOL."Copyright (c) 2020 Gaetano Sutera <https://github.com/skrtdev>";
