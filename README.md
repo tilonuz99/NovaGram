@@ -24,7 +24,7 @@ $Bot = new Bot("YOUR_TOKEN", [
     "debug" => CHAT_ID,
     "parse_mode" => "HTML",
     "mode" => "getUpdates",
-    "exceptions" => false
+    "exceptions" => false,
     "async" => true,
 ]);
 
