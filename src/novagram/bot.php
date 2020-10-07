@@ -2,6 +2,9 @@
 
 namespace skrtdev\NovaGram;
 
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\FirePHPHandler;
 use skrtdev\Telegram\Exception as TelegramException;
 use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
@@ -10,6 +13,8 @@ class Bot {
 
     use methods;
     use proto;
+
+    const LICENSE = "NovaGram - An Object-Oriented PHP library for Telegram Bots".PHP_EOL."Copyright (c) 2020 Gaetano Sutera <https://github.com/skrtdev>";
 
     private string $token; // read-only
     private \stdClass $settings;
@@ -21,8 +26,11 @@ class Bot {
     public int $id; // read-only
     public Database $database; // read-only
 
+    private $started = false;
+    private static $shown_license = false;
 
-    public function __construct(string $token, array $settings = []) {
+
+    public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
         if(!Utils::isTokenValid($token)){
             throw new Exception("Not a valid Telegram Bot Token provided ($token)");
         }
@@ -30,6 +38,12 @@ class Bot {
         $this->id = Utils::getIDByToken($token);
         $this->settings = (object) $settings;
 
+        if(!isset($logger)){
+            $logger = new Logger("NovaGram");
+            $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
+            #$logger->info('Logger automatically replaced by a default one');
+        }
+        $this->logger = $logger;
 
         $settings_array = [
             "json_payload" => true,
@@ -37,12 +51,16 @@ class Bot {
             "debug" => false,
             "disable_webhook" => false,
             "disable_ip_check" => false,
-            "exceptions" => true
+            "exceptions" => true,
+            "mode" => "webhook",
+            "async" => true
         ];
 
         foreach ($settings_array as $name => $default){
             $this->settings->{$name} ??= $default;
         }
+
+        if($this->settings->mode === "getUpdates") $this->settings->disable_webhook = true;
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
 
@@ -63,8 +81,104 @@ class Bot {
 
             $this->update = $this->JSONToTelegramObject($this->raw_update, "Update");
         }
-        else $this->settings->json_payload = false;
+        else{
+            $this->settings->json_payload = false;
+        }
 
+
+    }
+
+    public function addHandler(\Closure $handler){
+        $this->handler = $handler;
+        return $this->idle();
+    }
+
+    public function handleUpdate(Update $update){
+        $handler = $this->handler;
+        echo "INSIDE handleUpdate", "\n";
+        #var_dump($this->loop);
+        $handler($update);
+        return;
+    }
+
+    public function processUpdates($offset = 0){
+        #echo "INSIDE PROCESS UPDATES, $offset", "\n";
+        #sleep(1);
+        #return;
+        $async = $this->settings->async;
+        $params = ['offset' => $offset, 'timeout' => 30];
+        $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
+        $updates = $this->getUpdates($params);
+        $handler = $this->handler;
+        foreach ($updates as $update) {
+            #$update = $this->JSONToTelegramObject($update, "Update");
+            if(!$async){
+                $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                $started = hrtime(true)/10**9;
+                $handler($update);
+                $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+            }
+            else{
+                $pid = pcntl_fork();
+                if ($pid == -1) {
+                    die('could not fork');
+                }
+                elseif($pid){
+                    // we are the parent
+                    pcntl_wait($status, WNOHANG | WUNTRACED);
+                }
+                else{
+                    // we are the child
+                    $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                    $started = hrtime(true)/10**9;
+                    try{
+                        $handler($update);
+                    }
+                    catch(Throwable $e){
+                        echo "caught in child\n";
+                        var_dump($e);
+                    }
+                    #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
+                    #var_dump(posix_kill(getmypid(), SIGKILL));
+                    $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+                    exit;
+                }
+
+                #echo "\n\n\nDOPO\n\n\n\n";
+
+            }
+            $offset = $update->update_id+1;
+
+        }
+        return $offset;
+    }
+
+    public function showLicense(): void {
+        if(!$this->started){
+            print(self::LICENSE.PHP_EOL);
+            $this->started = true;
+        }
+    }
+
+    public function idle(){
+        $this->deleteWebhook();
+        $this->logger->debug('Webhook deleted');
+        if(!$this->started){
+            $this->logger->debug('Starting Bot');
+            $this->showLicense();
+            while (true) {
+                $offset = $this->processUpdates($offset ?? 0);
+            }
+            $this->started = true;
+        }
+    }
+
+    public function __destruct(){
+        #return;
+        if($this->settings->mode === "getUpdates" and !$this->started){
+            $this->logger->debug('Idling by destructor');
+            return $this->idle();
+        }
     }
 
     private function methodHasParamater(string $method, string $parameter){
@@ -120,6 +234,7 @@ class Bot {
         $decoded =  json_decode($response, true);
 
         if($decoded['ok'] !== true){
+            $this->logger->debug("Response: ".$response);
             if($is_debug) throw new TelegramException("[DURING DEBUG] $method", $decoded, $data);
             $e = new TelegramException($method, $decoded, $data);
             if($this->settings->debug){
