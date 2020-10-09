@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace skrtdev\NovaGram;
 
 use Monolog\Logger;
@@ -8,6 +10,8 @@ use Monolog\Handler\FirePHPHandler;
 use skrtdev\Telegram\Exception as TelegramException;
 use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
+use \Closure;
+use \Throwable;
 
 class Bot {
 
@@ -26,8 +30,10 @@ class Bot {
     public int $id; // read-only
     public Database $database; // read-only
 
-    private $started = false;
-    private static $shown_license = false;
+    private bool $started = false;
+    private static bool $shown_license = false;
+
+    private ?Closure $error_handler = null;
 
 
     public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
@@ -40,7 +46,7 @@ class Bot {
 
         if(!isset($logger)){
             $logger = new Logger("NovaGram");
-            $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
+            $logger->pushHandler(new StreamHandler(STDERR, Logger::INFO));
             #$logger->info('Logger automatically replaced by a default one');
         }
         $this->logger = $logger;
@@ -88,9 +94,26 @@ class Bot {
 
     }
 
-    public function addHandler(\Closure $handler){
+    public function setErrorHandler(Closure $handler){
+        $this->error_handler = $handler;
+    }
+
+    public function addHandler(...$args){
+        return $this->onUpdate(...$args);
+    }
+
+    public function onUpdate(Closure $handler){
         $this->handler = $handler;
-        return $this->idle();
+        #return $this->idle();
+    }
+
+    public function handleError(Throwable $e){
+        $logger = $this->logger;
+        $handler = $this->error_handler ?? function (Throwable $e) use ($logger){
+            $logger->error("Error handler is not set (caused by ".get_class($e).")");
+        };
+        $handler($e);
+        return;
     }
 
     public function handleUpdate(Update $update){
@@ -106,17 +129,17 @@ class Bot {
         #sleep(1);
         #return;
         $async = $this->settings->async;
-        $params = ['offset' => $offset, 'timeout' => 30];
+        $params = ['offset' => $offset, 'timeout' => 300];
         $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
         $updates = $this->getUpdates($params);
         $handler = $this->handler;
         foreach ($updates as $update) {
             #$update = $this->JSONToTelegramObject($update, "Update");
             if(!$async){
-                $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
                 $started = hrtime(true)/10**9;
                 $handler($update);
-                $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+                $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
             }
             else{
                 $pid = pcntl_fork();
@@ -129,18 +152,19 @@ class Bot {
                 }
                 else{
                     // we are the child
-                    $this->logger->debug("Update handling started.", ['update_id' => $update->update_id]);
+                    $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
                     $started = hrtime(true)/10**9;
                     try{
                         $handler($update);
                     }
                     catch(Throwable $e){
-                        echo "caught in child\n";
-                        var_dump($e);
+                        //echo "caught in child\n";
+                        //print($e);
+                        $this->handleError($e);
                     }
                     #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
                     #var_dump(posix_kill(getmypid(), SIGKILL));
-                    $this->logger->debug("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+                    $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                     exit;
                 }
 
@@ -154,27 +178,25 @@ class Bot {
     }
 
     public function showLicense(): void {
-        if(!$this->started){
+        if(!self::$shown_license){
             print(self::LICENSE.PHP_EOL);
-            $this->started = true;
+            self::$shown_license = true;
         }
     }
 
     public function idle(){
-        $this->deleteWebhook();
-        $this->logger->debug('Webhook deleted');
         if(!$this->started){
-            $this->logger->debug('Starting Bot');
+            $this->deleteWebhook();
+            $this->started = true;
             $this->showLicense();
             while (true) {
                 $offset = $this->processUpdates($offset ?? 0);
             }
-            $this->started = true;
         }
     }
 
     public function __destruct(){
-        #return;
+        $this->logger->debug("\n\nTriggered destructor\n\n");
         if($this->settings->mode === "getUpdates" and !$this->started){
             $this->logger->debug('Idling by destructor');
             return $this->idle();
