@@ -8,6 +8,11 @@ An elegant, Object-Oriented, reliable PHP Telegram Bot Interface
 - Long Polling (async)
 - Error handler
 
+## TODO
+
+- Error handler based on type hinting for setting more handlers with only a Closure  
+- Auto recognition of mode to use: WebHook/getUpdates
+
 ### Installation via [Composer](https://getcomposer.org)
 
 ```
