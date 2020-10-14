@@ -10,8 +10,8 @@ use Monolog\Handler\FirePHPHandler;
 use skrtdev\Telegram\Exception as TelegramException;
 use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
-use \Closure;
-use \Throwable;
+use Closure;
+use Throwable;
 
 class Bot {
 
@@ -107,13 +107,14 @@ class Bot {
         #return $this->idle();
     }
 
-    public function handleError(Throwable $e){
-        $logger = $this->logger;
-        $handler = $this->error_handler ?? function (Throwable $e) use ($logger){
-            $logger->error("Error handler is not set (caused by ".get_class($e).")");
-        };
-        $handler($e);
-        return;
+    public function handleError(Throwable $e): void {
+        if(isset($this->error_handler)){
+            $handler = $this->error_handler;
+            $handler($e);
+        }
+        else{
+            print(PHP_EOL.$e.PHP_EOL.PHP_EOL);
+        }
     }
 
     public function handleUpdate(Update $update){
@@ -125,16 +126,12 @@ class Bot {
     }
 
     public function processUpdates($offset = 0){
-        #echo "INSIDE PROCESS UPDATES, $offset", "\n";
-        #sleep(1);
-        #return;
         $async = $this->settings->async;
         $params = ['offset' => $offset, 'timeout' => 300];
         $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
         $updates = $this->getUpdates($params);
         $handler = $this->handler;
         foreach ($updates as $update) {
-            #$update = $this->JSONToTelegramObject($update, "Update");
             if(!$async){
                 $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
                 $started = hrtime(true)/10**9;
@@ -158,17 +155,12 @@ class Bot {
                         $handler($update);
                     }
                     catch(Throwable $e){
-                        //echo "caught in child\n";
-                        //print($e);
                         $this->handleError($e);
                     }
-                    #register_shutdown_function(create_function('$pars', 'ob_end_clean();posix_kill(getmypid(), SIGKILL);'));
-                    #var_dump(posix_kill(getmypid(), SIGKILL));
                     $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                     exit;
                 }
 
-                #echo "\n\n\nDOPO\n\n\n\n";
 
             }
             $offset = $update->update_id+1;
@@ -189,6 +181,9 @@ class Bot {
             $this->deleteWebhook();
             $this->started = true;
             $this->showLicense();
+            if(!isset($this->error_handler)){
+                $this->logger->error("Error handler is not set.");
+            }
             while (true) {
                 $offset = $this->processUpdates($offset ?? 0);
             }
