@@ -32,6 +32,10 @@ class Utils{
         $caller = end($debug_backtrace);
         trigger_error($error_msg." in {$caller['file']}:{$caller['line']}", $error_type);
     }
+
+    static function isCLI($value=''){
+        return http_response_code() === false;
+    }
 }
 
 ?>

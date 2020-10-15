@@ -19,6 +19,9 @@ class Bot {
     use proto;
 
     const LICENSE = "NovaGram - An Object-Oriented PHP library for Telegram Bots".PHP_EOL."Copyright (c) 2020 Gaetano Sutera <https://github.com/skrtdev>";
+    const NONE        = 0;
+    const WEBHOOK     = 1;
+    const GET_UPDATES = 2;
 
     private string $token; // read-only
     private \stdClass $settings;
@@ -66,6 +69,14 @@ class Bot {
             $this->settings->{$name} ??= $default;
         }
 
+        if(!isset($this->settings->mode)){
+            if($this->settings->disable_webhook){
+                $this->settings->mode = self::NONE;
+            }
+            else{
+                $this->settings->mode = Utils::isCLI() ? "getUpdates" : "webhook";
+            }
+        }
         if($this->settings->mode === "getUpdates") $this->settings->disable_webhook = true;
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
