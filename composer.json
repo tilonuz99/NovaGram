@@ -15,10 +15,14 @@
     },
     "autoload": {
         "psr-4":{
+            "skrtdev\\Telegram\\": "src/Telegram/types",
             "skrtdev\\": "src/"
         },
         "classmap":[
-            "src/"
+            "src/bc",
+            "src/proto",
+            "src/traits",
+            "src/NovaGram/parser.php"
         ]
     }
 }
