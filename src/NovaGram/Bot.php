@@ -51,7 +51,7 @@ class Bot {
 
         if(!isset($logger)){
             $logger = new Logger("NovaGram");
-            $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
+            $logger->pushHandler(new StreamHandler(STDERR, Logger::INFO));
             #$logger->info('Logger automatically replaced by a default one');
         }
         $this->logger = $logger;
@@ -81,11 +81,11 @@ class Bot {
             }
         }
         if($this->settings->mode === "getUpdates"){
-            Utils::trigger_error("Using deprecated mode, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
+            Utils::trigger_error("Using deprecated \"getUpdates\" mode in settings, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
             $this->settings->mode = self::CLI;
         }
         if($this->settings->mode === "webhook"){
-            Utils::trigger_error("Using deprecated mode, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
+            Utils::trigger_error("Using deprecated \"webhook\" mode in settings, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
             $this->settings->mode = self::WEBHOOK;
         }
 
