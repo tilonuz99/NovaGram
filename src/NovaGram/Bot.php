@@ -73,22 +73,29 @@ class Bot {
 
         if(!isset($this->settings->mode)){
             if($this->settings->disable_webhook){
+                Utils::trigger_error("Using deprecated disable_webhook, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
                 $this->settings->mode = self::NONE;
             }
             else{
                 $this->settings->mode = Utils::isCLI() ? self::CLI : self::WEBHOOK;
             }
         }
-        if($this->settings->mode === "getUpdates") $this->settings->mode = self::CLI;
-        if($this->settings->mode === "webhook") $this->settings->mode = self::WEBHOOK;
+        if($this->settings->mode === "getUpdates"){
+            Utils::trigger_error("Using deprecated mode, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
+            $this->settings->mode = self::CLI;
+        }
+        if($this->settings->mode === "webhook"){
+            Utils::trigger_error("Using deprecated mode, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
+            $this->settings->mode = self::WEBHOOK;
+        }
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
 
         if(isset($this->settings->database)){
             $this->database = $this->db = new Database($this->settings->database);
         }
-        
-        if(!$this->settings->mode !== self::NONE){
+
+        if(!$this->settings->mode === self::WEBHOOK){
             if(!$this->settings->disable_ip_check){
                 if(!isset($_SERVER['REMOTE_ADDR'])) exit;
                 if(isset($_SERVER["HTTP_CF_CONNECTING_IP"]) and Utils::isCloudFlare()) $_SERVER['REMOTE_ADDR'] = $_SERVER["HTTP_CF_CONNECTING_IP"];
