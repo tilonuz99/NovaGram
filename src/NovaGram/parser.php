@@ -10,8 +10,8 @@ class EntityParser{
         "bold" => "b",
         "italic" => "i",
         "text_link" => "a",
-        "mention" => "a",
         "text_mention" => "a",
+        "url" => "a",
         "underline" => "ins",
         "strikethrough" => "strike",
         "code" => "code",
@@ -19,8 +19,8 @@ class EntityParser{
     ];
 
     const SKIP_ENTITES = [
-        "url",
         "bot_command",
+        "mention"
     ];
 
 
@@ -42,7 +42,9 @@ class EntityParser{
             }
 
             if ($type === "text_link") $openTag = "<$tag href='{$entity->url}'>";
-            elseif ($type === "text_mention" or $type === "mention") $openTag = "<$tag href='tg://user?id={$entity->user->id}'>";
+            elseif ($type === "text_mention") $openTag = "<$tag href='tg://user?id={$entity->user->id}'>";
+            #elseif ($type === "mention") $openTag = "<$tag href='https://t.me/".str_replace('@', '', )."'>";
+            # TODO: find a way do get entities value inside this function
             else $openTag = "<$tag>";
             // will turn into a match in php8
 
