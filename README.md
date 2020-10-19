@@ -5,13 +5,13 @@ An elegant, Object-Oriented, reliable PHP Telegram Bot Interface
 
 ## Being implemented in this branch
 
-- Long Polling (async)
+- Long Polling (multi-processing)
 - Error handler
+- Auto recognition of mode to use: WebHook/getUpdates/none
 
 ## TODO
 
-- Error handler based on type hinting for setting more handlers with only a Closure  
-- Auto recognition of mode to use: WebHook/getUpdates
+- Error handler based on type hinting for setting more handlers with only a Closure as parameter  
 
 ### Installation via [Composer](https://getcomposer.org)
 
@@ -29,17 +29,20 @@ use skrtdev\NovaGram\Bot;
 $Bot = new Bot("YOUR_TOKEN", [
     "debug" => CHAT_ID,
     "parse_mode" => "HTML",
-    "mode" => "getUpdates",
-    "exceptions" => false,
-    "async" => true,
 ]);
 
 $Bot->onUpdate(function (Update $update) use ($Bot) {
-    $message = $update->message;
-    $chat = $message->chat;
-    $user = $message->from;
 
-    $message->forward(); // forward() with no parameters will forward the Message back to the sender
+    if(isset($update->message)){ // update is a message
+        $message = $update->message;
+        $chat = $message->chat;
+
+        if(isset($message->from)){ // message has a sender
+            $user = $message->from;
+
+            $message->forward(); // forward() with no parameters will forward the Message back to the sender
+        }
+    }
 });
 ```
 
