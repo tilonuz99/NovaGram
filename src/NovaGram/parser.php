@@ -10,11 +10,17 @@ class EntityParser{
         "bold" => "b",
         "italic" => "i",
         "text_link" => "a",
+        "mention" => "a",
         "text_mention" => "a",
         "underline" => "ins",
         "strikethrough" => "strike",
         "code" => "code",
         "pre" => "pre"
+    ];
+
+    const SKIP_ENTITES = [
+        "url",
+        "bot_command",
     ];
 
 
@@ -25,18 +31,23 @@ class EntityParser{
             $length = $entity->length;
             $type = $entity->type;
             $tags = self::TAGS;
+
+            if(in_array($type, self::SKIP_ENTITES)) continue;
+
             foreach ($tags as $entity_type => $html_tag) {
                 if($type === $entity_type) $tag = $html_tag;
             }
             if(!isset($tag)){
                 throw new Exception("Could not parse Message Entities: not found entity '$type', please report issue - https://novagram.ga");
             }
+
             if ($type === "text_link") $openTag = "<$tag href='{$entity->url}'>";
-            elseif ($type === "text_mention") $openTag = "<$tag href='tg://user?id={$entity->user->id}'>";
+            elseif ($type === "text_mention" or $type === "mention") $openTag = "<$tag href='tg://user?id={$entity->user->id}'>";
             else $openTag = "<$tag>";
             // will turn into a match in php8
 
             $closeTag = "</$tag>";
+            unset($tag);
 
             $real_entities[$offset] ??= [];
             $real_entities[$offset][] = $openTag;

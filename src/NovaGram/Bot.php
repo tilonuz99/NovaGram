@@ -274,7 +274,8 @@ class Bot {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $response = curl_exec($ch);
         curl_close($ch);
-        $decoded =  json_decode($response, true);
+        if(is_bool($response)) throw new Exception("an error happened during curl call");
+        $decoded = json_decode($response, true);
 
         if($decoded['ok'] !== true){
             $this->logger->debug("Response: ".$response);
