@@ -8,7 +8,7 @@ use skrtdev\NovaGram\Bot;
 use skrtdev\Telegram\Update;
 
 
-$Bot = new Bot("722952667:AAGuTpVXhJ_aJOfmLFx-9yTIJ9y_yIA3NkU", [
+$Bot = new Bot("YOUR_TOKEN", [
     #"debug" => 634408248, // chat id where debug will be sent when api errors occurs
     "parse_mode" => "HTML",
     #"mode" => "webhook",
