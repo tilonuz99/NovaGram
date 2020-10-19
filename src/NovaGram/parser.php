@@ -11,7 +11,6 @@ class EntityParser{
         "italic" => "i",
         "text_link" => "a",
         "text_mention" => "a",
-        "url" => "a",
         "underline" => "ins",
         "strikethrough" => "strike",
         "code" => "code",
@@ -20,7 +19,8 @@ class EntityParser{
 
     const SKIP_ENTITES = [
         "bot_command",
-        "mention"
+        "mention",
+        "url"
     ];
 
 
