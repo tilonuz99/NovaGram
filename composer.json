@@ -11,6 +11,10 @@
     ],
     "require":{
         "php":">=7.4",
+        "ext-json":"*",
+        "ext-mbstring":"*",
+        "ext-curl":"*",
+        "skrtdev/async":"dev-master",
         "monolog/monolog":"^2.1"
     },
     "autoload": {
