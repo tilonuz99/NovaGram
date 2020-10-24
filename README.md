@@ -8,10 +8,12 @@ An elegant, Object-Oriented, reliable PHP Telegram Bot Interface
 - Long Polling (multi-processing)
 - Error handler
 - Auto recognition of mode to use: WebHook/getUpdates/none
+- Error handler based on type hinting for setting more handlers with only a Closure as parameter  
+- Use something else than fork for making multi-processing update handling ([skrtdev/async](https://github.com/skrtdev/php-async))  
 
 ## TODO
 
-- Error handler based on type hinting for setting more handlers with only a Closure as parameter  
+- Improve [skrtdev/async](https://github.com/skrtdev/php-async)
 
 ### Installation via [Composer](https://getcomposer.org)
 
