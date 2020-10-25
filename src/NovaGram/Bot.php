@@ -347,7 +347,7 @@ class Bot {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $response = curl_exec($ch);
         curl_close($ch);
-        if(is_bool($response)) throw new Exception("an error happened during curl call");
+        if(is_bool($response)) return $this->APICall(...func_get_args());
         $decoded = json_decode($response, true);
 
         if($decoded['ok'] !== true){
