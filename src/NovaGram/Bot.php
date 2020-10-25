@@ -211,17 +211,16 @@ class Bot {
                 $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
             }
             else{
-                $Bot = $this;
-                $this->pool->parallel(function () use ($Bot, $update) {
+                $this->pool->parallel(function () use ($update) {
+                    #$this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
+                    #$started = hrtime(true)/10**9;
                     try{
-                        $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
-                        $started = hrtime(true)/10**9;
-                        $Bot->handleUpdate($update);
-                        $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+                        $this->handleUpdate($update);
                     }
                     catch(Throwable $e){
                         $this->handleError($e);
                     }
+                    #$this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                 });
 /*
                 $pid = pcntl_fork();
