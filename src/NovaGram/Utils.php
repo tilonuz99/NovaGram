@@ -37,7 +37,7 @@ class Utils{
         return http_response_code() === false;
     }
 
-    public function getFileSHA(){
+    public static function getFileSHA(){
         $file = file_get_contents(realpath($_SERVER['SCRIPT_FILENAME']));
         return hash("sha256", $file);
     }
