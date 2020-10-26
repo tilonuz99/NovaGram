@@ -14,7 +14,7 @@
         "ext-json":"*",
         "ext-mbstring":"*",
         "ext-curl":"*",
-        "skrtdev/async":"dev-master",
+        "skrtdev/async":"0.1",
         "monolog/monolog":"^2.1"
     },
     "autoload": {
