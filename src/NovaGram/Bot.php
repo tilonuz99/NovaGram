@@ -46,6 +46,8 @@ class Bot {
 
     public ?Logger $logger = null;
 
+    private ?string $file_sha = null;
+
     public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
         Beta::CheckForUpdates();
 
@@ -72,8 +74,8 @@ class Bot {
             "disable_webhook" => false,
             "disable_ip_check" => false,
             "exceptions" => true,
-            #"mode" => "webhook",
-            "async" => true
+            "async" => true,
+            "restart_on_changes" => false
         ];
 
         foreach ($settings_array as $name => $default){
@@ -96,6 +98,9 @@ class Bot {
         if($this->settings->mode === "webhook"){
             Utils::trigger_error("Using deprecated \"webhook\" mode in settings, check updated docs at https://docs.novagram.ga/construct.html", E_USER_DEPRECATED);
             $this->settings->mode = self::WEBHOOK;
+        }
+        if($this->settings->restart_on_changes){
+            $this->file_sha = Utils::getFileSHA();
         }
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
@@ -195,6 +200,19 @@ class Bot {
         $handler($update);
     }
 
+    public function restartOnChanges(){
+        if($this->settings->restart_on_changes){
+            if($this->file_sha !== Utils::getFileSHA()){
+            #if(true){
+                print(PHP_EOL."Restarting script...".PHP_EOL.PHP_EOL);
+                #pcntl_exec($_SERVER['_'], $argv);
+                #shell_exec("kill -9 ".getmypid());
+                shell_exec("php ".realpath($_SERVER['SCRIPT_FILENAME']));
+                exit();
+            }
+        }
+    }
+
     public function processUpdates($offset = 0){
         Beta::CheckForUpdates();
         $this->pool->resolveQueue();
@@ -203,6 +221,7 @@ class Bot {
         $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
         $updates = $this->getUpdates($params);
         $handler = $this->handler;
+        $this->restartOnChanges();
         foreach ($updates as $update) {
             if(!$async){
                 $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
