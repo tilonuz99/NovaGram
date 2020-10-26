@@ -203,10 +203,7 @@ class Bot {
     public function restartOnChanges(){
         if($this->settings->restart_on_changes){
             if($this->file_sha !== Utils::getFileSHA()){
-            #if(true){
                 print(PHP_EOL."Restarting script...".PHP_EOL.PHP_EOL);
-                #pcntl_exec($_SERVER['_'], $argv);
-                #shell_exec("kill -9 ".getmypid());
                 shell_exec("php ".realpath($_SERVER['SCRIPT_FILENAME']));
                 exit();
             }
@@ -241,35 +238,6 @@ class Bot {
                     }
                     #$this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                 });
-/*
-                $pid = pcntl_fork();
-                if ($pid == -1) {
-                    die('could not fork');
-                }
-                elseif($pid){
-                    // we are the parent
-                    pcntl_wait($status, WNOHANG | WUNTRACED);
-                }
-                else{
-                    // we are the child
-                    $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
-                    $started = hrtime(true)/10**9;
-                    try{
-                        #$this->handleUpdate($update);
-                        $Bot = $this;
-                        $this->pool->parallel(function () use ($Bot, $update) {
-                            $Bot->handleUpdate($update);
-                        });
-                    }
-                    catch(Throwable $e){
-                        $this->handleError($e);
-                    }
-                    $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
-                    exit;
-                }
-                */
-
-
             }
             $offset = $update->update_id+1;
 
@@ -304,9 +272,9 @@ class Bot {
     public function __destruct(){
         $this->logger->debug("Triggered destructor");
         if(!$this->started){
-            if($this->settings->mode === self::CLI){
+            if($this->settings->mode === self::CLI && isset($this->handler)){
                 $this->logger->debug('Idling by destructor');
-                return $this->idle();
+                $this->idle();
             }
             if($this->settings->mode === self::WEBHOOK){
                 if(isset($this->update) && isset($this->handler)){
