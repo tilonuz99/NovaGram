@@ -48,6 +48,8 @@ class Bot {
 
     private ?string $file_sha = null;
 
+    private Pool $pool;
+
     public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
         Beta::CheckForUpdates();
 
@@ -57,7 +59,9 @@ class Bot {
         $this->token = $token;
         $this->id = Utils::getIDByToken($token);
         $this->settings = (object) $settings;
-        $this->pool = new Pool();
+        if(Utils::isCLI()){
+            $this->pool = new Pool();
+        }
 
         if(!isset($logger)){
             $logger = new Logger("NovaGram");
@@ -197,7 +201,12 @@ class Bot {
 
     public function handleUpdate(Update $update): void {
         $handler = $this->handler;
-        $handler($update);
+        try{
+            $handler($update);
+        }
+        catch(Throwable $e){
+            $this->handleError($e);
+        }
     }
 
     public function restartOnChanges(){
@@ -230,12 +239,7 @@ class Bot {
                 $this->pool->parallel(function () use ($update) {
                     #$this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
                     #$started = hrtime(true)/10**9;
-                    try{
-                        $this->handleUpdate($update);
-                    }
-                    catch(Throwable $e){
-                        $this->handleError($e);
-                    }
+                    $this->handleUpdate($update);
                     #$this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
                 });
             }
@@ -272,13 +276,15 @@ class Bot {
     public function __destruct(){
         $this->logger->debug("Triggered destructor");
         if(!$this->started){
-            if($this->settings->mode === self::CLI && isset($this->handler)){
-                $this->logger->debug('Idling by destructor');
-                $this->idle();
-            }
-            if($this->settings->mode === self::WEBHOOK){
-                if(isset($this->update) && isset($this->handler)){
-                    $this->handleUpdate($this->update);
+            if(isset($this->handler)){
+                if($this->settings->mode === self::CLI){
+                    $this->logger->debug('Idling by destructor');
+                    $this->idle();
+                }
+                if($this->settings->mode === self::WEBHOOK){
+                    if(isset($this->update)){
+                        $this->handleUpdate($this->update);
+                    }
                 }
             }
         }
