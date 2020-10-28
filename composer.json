@@ -19,7 +19,7 @@
     },
     "autoload": {
         "psr-4":{
-            "skrtdev\\Telegram\\": "src/Telegram/types",
+            "skrtdev\\Telegram\\": ["src/Telegram/Types", "src/Telegram/Exceptions"],
             "skrtdev\\": "src/"
         },
         "classmap":[

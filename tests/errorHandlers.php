@@ -25,6 +25,12 @@ $Bot->onUpdate(function (Update $update) use ($Bot) {
             if($text === "/telegram"){
                 $Bot->sendMessage(0, "uh");
             }
+            if($text === "/getUpdates"){
+                $Bot->getUpdates(["timeout" => 300]);
+                (new skrtdev\async\Pool)->parallel(function () use ($Bot) {
+                    $Bot->getUpdates(["timeout" => 300]);
+                });
+            }
             if($text === "/exception"){
                 throw new \Exception("Sample Exception");
             }
@@ -35,17 +41,23 @@ $Bot->onUpdate(function (Update $update) use ($Bot) {
     }
 });
 
-$Bot->setErrorHandler(function (NovaGramException $e) {
+$Bot->addErrorHandler(function (NovaGramException $e) {
     print("Caught ".get_class($e)." exception from speficic handler".PHP_EOL);
 });
 
-$Bot->setErrorHandler(function (TelegramException $e) {
+$Bot->addErrorHandler(function (TelegramException $e) {
     print("Caught ".get_class($e)." exception from speficic handler".PHP_EOL);
 });
 
-$Bot->setErrorHandler(function (Throwable $e) {
+$Bot->addErrorHandler(function (Throwable $e) {
     print("Caught ".get_class($e)." exception from general handler".PHP_EOL);
+    print($e.PHP_EOL);
 });
+
+#
+/*
+722952667:AAFoPOkdyWXTT3j-Efm5PrwDGW20AhB_9T8
+*/
 
 // the same exception can be handled by more than one handler
 

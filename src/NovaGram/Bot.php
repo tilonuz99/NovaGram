@@ -104,7 +104,12 @@ class Bot {
             $this->settings->mode = self::WEBHOOK;
         }
         if($this->settings->restart_on_changes){
-            $this->file_sha = Utils::getFileSHA();
+            if($this->settings->mode === self::CLI){
+                $this->file_sha = Utils::getFileSHA();
+            }
+            else{
+                throw new Exception("restart_on_changes can be used only on CLI");
+            }
         }
 
         $this->json = json_decode(implode(file(__DIR__."/json.json")), true);
@@ -314,7 +319,7 @@ class Bot {
         return $data;
     }
 
-    public function APICall(string $method, array $data = [], bool $payload = false, bool $is_debug = false){
+    public function APICall(string $method, array $data = [], bool $payload = false, bool $is_debug = false, \Exception $previous_exception = null){
 
         $data = $this->normalizeRequest($method, $data);
 
@@ -345,8 +350,8 @@ class Bot {
 
         if($decoded['ok'] !== true){
             $this->logger->debug("Response: ".$response);
-            if($is_debug) throw new TelegramException("[DURING DEBUG] $method", $decoded, $data);
-            $e = new TelegramException($method, $decoded, $data);
+            if($is_debug) throw TelegramException::create("[DURING DEBUG] $method", $decoded, $data, $previous_exception);
+            $e = TelegramException::create($method, $decoded, $data);
             if($this->settings->debug){
                 #$this->sendMessage($this->settings->debug, "<pre>".$method.PHP_EOL.PHP_EOL.print_r($data, true).PHP_EOL.PHP_EOL.print_r($decoded, true)."</pre>", ["parse_mode" => "HTML"], false, true);
                 $this->debug( (string) $e );
