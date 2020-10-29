@@ -20,15 +20,15 @@ class Exception extends \Exception{
         $args = func_get_args();
         switch ($response['error_code']) {
             case '400':
-                return new ConflictException(...$args);
+                return new BadRequestException(...$args);
                 break;
 
             case '403':
                 return new ForbiddenException(...$args);
                 break;
 
-            case '404':
-                return new BadRequestException(...$args);
+            case '409':
+                return new ConflictException(...$args);
                 break;
 
             default:

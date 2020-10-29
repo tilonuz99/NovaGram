@@ -8,15 +8,17 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\ErrorLogHandler;
 use Monolog\Handler\FirePHPHandler;
+
 use skrtdev\Telegram\Exception as TelegramException;
 use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
+
+use skrtdev\async\Pool;
+
 use Closure;
 use Throwable;
 use stdClass;
 use ReflectionFunction;
-
-use skrtdev\async\Pool;
 
 class Bot {
 
@@ -125,7 +127,7 @@ class Bot {
                 $logger->debug("IP Check is enabled");
                 if(!isset($_SERVER['REMOTE_ADDR'])) exit;
                 if(isset($_SERVER["HTTP_CF_CONNECTING_IP"]) and Utils::isCloudFlare()) $_SERVER['REMOTE_ADDR'] = $_SERVER["HTTP_CF_CONNECTING_IP"];
-                if(!Utils::ip_in_range($_SERVER['REMOTE_ADDR'], "149.154.160.0/20") and !Utils::ip_in_range($_SERVER['REMOTE_ADDR'], "91.108.4.0/22")) exit("Access Denied");
+                if(!Utils::ip_in_range($_SERVER['REMOTE_ADDR'], "149.154.160.0/20") and !Utils::ip_in_range($_SERVER['REMOTE_ADDR'], "91.108.4.0/22")) exit("Access Denied - Telegram IP Protection by NovaGram.ga");
             }
             if(file_get_contents("php://input") === "") exit("Access Denied");
 
@@ -139,6 +141,11 @@ class Bot {
             $this->settings->json_payload = false;
         }
 
+        if($this->settings->debug !== false){
+            $this->addErrorHandler(function (Throwable $e) {
+                $this->debug( (string) $e );
+            });
+        }
 
     }
 
@@ -162,7 +169,7 @@ class Bot {
     }
 
 
-    private function isAllowedThrowableType(Throwable $throwable, callable $callable): bool {
+    protected function isAllowedThrowableType(Throwable $throwable, callable $callable): bool {
         $reflection = new ReflectionFunction($callable);
 
         $parameters = $reflection->getParameters();
@@ -190,7 +197,7 @@ class Bot {
         return false;
     }
 
-    public function handleError(Throwable $e): void {
+    protected function handleError(Throwable $e): void {
         $handled = false;
         foreach ($this->error_handlers as $handler) {
             if($this->isAllowedThrowableType($e, $handler)){
@@ -204,7 +211,7 @@ class Bot {
 
     }
 
-    public function handleUpdate(Update $update): void {
+    protected function handleUpdate(Update $update): void {
         $handler = $this->handler;
         try{
             $handler($update);
@@ -214,7 +221,7 @@ class Bot {
         }
     }
 
-    public function restartOnChanges(){
+    protected function restartOnChanges(){
         if($this->settings->restart_on_changes){
             if($this->file_sha !== Utils::getFileSHA()){
                 print(PHP_EOL."Restarting script...".PHP_EOL.PHP_EOL);
@@ -224,7 +231,7 @@ class Bot {
         }
     }
 
-    public function processUpdates($offset = 0){
+    protected function processUpdates($offset = 0){
         Beta::CheckForUpdates();
         $this->pool->resolveQueue();
         $async = $this->settings->async;
@@ -254,7 +261,7 @@ class Bot {
         return $offset;
     }
 
-    public function showLicense(): void {
+    protected function showLicense(): void {
         if(!self::$shown_license){
             print(self::LICENSE.PHP_EOL);
             self::$shown_license = true;
@@ -354,7 +361,7 @@ class Bot {
             $e = TelegramException::create($method, $decoded, $data);
             if($this->settings->debug){
                 #$this->sendMessage($this->settings->debug, "<pre>".$method.PHP_EOL.PHP_EOL.print_r($data, true).PHP_EOL.PHP_EOL.print_r($decoded, true)."</pre>", ["parse_mode" => "HTML"], false, true);
-                $this->debug( (string) $e );
+                #$this->debug( (string) $e, $previous_exception);
             }
             if($this->settings->exceptions) throw $e;
             else return (object) $decoded;
@@ -436,13 +443,13 @@ class Bot {
         return new $obj($type, $json, $this);
     }
 
-    public function debug($value){
+    public function debug($value, ?Throwable $previous_exception = null){
         if($this->settings->debug){
             return $this->APICall("sendMessage", [
                 "chat_id" => $this->settings->debug,
                 "text" => "<pre>".htmlspecialchars(print_r($value, true))."</pre>",
                 "parse_mode" => "HTML"
-            ], false, true);
+            ], false, true, $previous_exception);
         }
         else throw new Exception("debug chat id is not set");
     }
