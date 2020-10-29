@@ -206,7 +206,12 @@ class Bot {
             }
         }
         if(!$handled){
-            print(PHP_EOL.$e.PHP_EOL.PHP_EOL);
+            if(Utils::isCLI()){
+                print(PHP_EOL.$e.PHP_EOL.PHP_EOL);
+            }
+            else{
+                throw $e;
+            }
         }
 
     }

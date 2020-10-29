@@ -8,8 +8,9 @@ class Beta{
         return json_decode($json);
     }
     public static function CheckForUpdates() {
+        $text = "A NovaGram update is now available! Do `composer update` to download it";
         if(self::getLatestShaRef() !== self::getCurrentShaRef()){
-            print("A NovaGram update is now available! Do `composer update` to download it".PHP_EOL);
+            Utils::isCLI() ? print($text.PHP_EOL) : trigger_error($text);
         }
     }
 

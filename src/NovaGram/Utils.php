@@ -3,6 +3,9 @@
 namespace skrtdev\NovaGram;
 
 class Utils{
+
+    public static ?bool $is_cli = null;
+
     public static function ip_in_range( $ip, $range ) {
         if ( strpos( $range, '/' ) === false ) $range .= '/32';
         list( $range, $netmask ) = explode( '/', $range, 2 );
@@ -34,7 +37,8 @@ class Utils{
     }
 
     public static function isCLI(){
-        return http_response_code() === false;
+        self::$is_cli ??= http_response_code() === false;
+        return self::$is_cli;
     }
 
     public static function getFileSHA(){
