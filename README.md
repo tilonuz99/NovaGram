@@ -10,7 +10,10 @@ An elegant, Object-Oriented, reliable PHP Telegram Bot Interface
 - [x] Auto recognition of mode to use: WebHook/getUpdates/none
 - [x] Error handler based on type hinting for setting more handlers with only a Closure as parameter  
 - [x] Use something else than fork for making multi-processing update handling ([skrtdev/async](https://github.com/skrtdev/php-async))  
-- [x] catch exceptions in exceptions handlers
+- [x] Catch exceptions in exceptions handlers
+- [x] New, more speficic exceptions
+- [x] Changed behaviour of debug setting: now it create an error handler
+- [ ] auto handling of FloodwaitException with a treshold?
 - [ ] ? more filters (onMessage, onCallbackQuery)
 
 ### Installation via [Composer](https://getcomposer.org)

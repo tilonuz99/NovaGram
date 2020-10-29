@@ -31,6 +31,10 @@ class Exception extends \Exception{
                 return new ConflictException(...$args);
                 break;
 
+            case '429':
+                return new FloodwaitException(...$args);
+                break;
+
             default:
                 return new self(...$args);
                 break;
