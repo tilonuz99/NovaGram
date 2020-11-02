@@ -43,7 +43,7 @@ class Bot {
     private bool $started = false;
     private static bool $shown_license = false;
 
-    private ?Closure $handler = null;
+    private ?array $handlers = [];
     private ?array $error_handlers = [];
 
     public ?Logger $logger = null;
@@ -164,7 +164,7 @@ class Bot {
     }
 
     public function onUpdate(Closure $handler){
-        $this->handler = $handler;
+        $this->handlers[] = $handler;
         #return $this->idle();
     }
 
@@ -217,12 +217,13 @@ class Bot {
     }
 
     protected function handleUpdate(Update $update): void {
-        $handler = $this->handler;
-        try{
-            $handler($update);
-        }
-        catch(Throwable $e){
-            $this->handleError($e);
+        foreach ($this->handlers as $handler) {
+            try{
+                $handler($update);
+            }
+            catch(Throwable $e){
+                $this->handleError($e);
+            }
         }
     }
 
@@ -243,7 +244,6 @@ class Bot {
         $params = ['offset' => $offset, 'timeout' => 300];
         $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
         $updates = $this->getUpdates($params);
-        $handler = $this->handler;
         $this->restartOnChanges();
         foreach ($updates as $update) {
             if(!$async){
@@ -275,7 +275,7 @@ class Bot {
 
     public function idle(){
         if($this->settings->mode === self::CLI and !$this->started){
-            if(isset($this->handler)){
+            if(!empty($this->handlers)){
                 $this->deleteWebhook();
                 $this->started = true;
                 $this->showLicense();
@@ -293,7 +293,7 @@ class Bot {
     public function __destruct(){
         $this->logger->debug("Triggered destructor");
         if(!$this->started){
-            if(isset($this->handler)){
+            if(!empty($this->handlers)){
                 if($this->settings->mode === self::CLI){
                     $this->logger->debug('Idling by destructor');
                     $this->idle();
