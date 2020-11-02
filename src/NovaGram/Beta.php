@@ -8,6 +8,7 @@ class Beta{
         return json_decode($json);
     }
     public static function CheckForUpdates() {
+        if(!file_exists(__DIR__."/../../../../../composer.lock")) return;
         $text = "A NovaGram update is now available! Do `composer update` to download it";
         if(self::getLatestShaRef() !== self::getCurrentShaRef()){
             Utils::isCLI() ? print($text.PHP_EOL) : trigger_error($text);
