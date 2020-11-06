@@ -3,9 +3,11 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use skrtdev\NovaGram\BotTest as Bot;
+use skrtdev\NovaGram\BaseHandler;
 use skrtdev\Telegram\{Update, Message};
 use skrtdev\NovaGram\Exception as NovaGramException;
 use skrtdev\Telegram\Exception as TelegramException;
+use function Amp\delay;
 
 class Filters{
 
@@ -67,6 +69,27 @@ $Bot = new Bot("722952667:AAFoPOkdyWXTT3j-Efm5PrwDGW20AhB_9T8", [
     #"async" => false
 ]);
 
+class Handler extends BaseHandler{
+    public function onUpdate(Bot $Bot, Update $update)
+    {
+        #print("afammoc");
+
+        if(isset($update->message)){ // update is a message
+            $message = $update->message;
+            $chat = $message->chat;
+
+            #yield delay(1000);
+            #print("there");
+            #sleep(1);
+            $message->reply("afammoc from class");
+            print("afammoc\n");
+            #yield delay(1000);
+        }
+
+        return yield new Amp\Success(true);
+    }
+}
+
 #var_dump(Filters::TextMessage() | Filters::TextMessage());
 
 $Bot->onMessage(new Filters(Filters::TextMessage()), function (Message $message) {
@@ -76,6 +99,7 @@ $Bot->onMessage(new Filters(Filters::TextMessage()), function (Message $message)
 $Bot->onMessage(new Filters(Filters::TextRegex('/ciao/')), function (Message $message) {
     $message->reply("ciao");
 });
+
 
 $Bot->onMessage(new Filters(Filters::commands("start")), function (Message $message) {
     $message->reply("start!");
@@ -87,15 +111,18 @@ $Bot->onUpdate(function (Update $update) use ($Bot) {
         $message = $update->message;
         $chat = $message->chat;
 
-        $message->reply("from Update handler");
+        #$message->reply("from Update handler");
     }
 });
 
-
+/*
 $Bot->addErrorHandler(function (Throwable $e) {
     print("Caught ".get_class($e)." exception from general handler".PHP_EOL);
     print($e.PHP_EOL);
 });
+*/
+$Bot->handleClass(new Handler);
 
+#$Bot->idle();
 
 ?>

@@ -14,16 +14,13 @@ use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
 
 use skrtdev\async\Pool;
-use Amp\Loop;
-use function Amp\ParallelFunctions\{parallel, parallelMap};
-use function Amp\Promise\wait;
 
 use Closure;
 use Throwable;
 use stdClass;
 use ReflectionFunction;
 
-class BotTest extends Bot {
+class Bot {
 
     use Methods;
     use proto;
@@ -256,11 +253,12 @@ class BotTest extends Bot {
                 $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
             }
             else{
-                echo "there\n";
-                wait(parallelMap([$update, false], function ($update) {
-                    print("hello");
+                $this->pool->parallel(function () use ($update) {
+                    #$this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
+                    #$started = hrtime(true)/10**9;
                     $this->handleUpdate($update);
-                }));
+                    #$this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
+                });
             }
             $offset = $update->update_id+1;
 

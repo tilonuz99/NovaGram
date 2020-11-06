@@ -2,12 +2,13 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use skrtdev\NovaGram\Bot;
+#use skrtdev\NovaGram\Bot;
+use skrtdev\NovaGram\BotTest as Bot;
 use skrtdev\Telegram\Update;
 use skrtdev\NovaGram\Exception as NovaGramException;
 use skrtdev\Telegram\Exception as TelegramException;
 
-$Bot = new Bot(readline("Insert Bot token: "));
+$Bot = new Bot(/*readline("Insert Bot token: ")*/"722952667:AAFoPOkdyWXTT3j-Efm5PrwDGW20AhB_9T8");
 
 $Bot->onUpdate(function (Update $update) use ($Bot) {
 
@@ -18,6 +19,7 @@ $Bot->onUpdate(function (Update $update) use ($Bot) {
         if(isset($message->from)){ // message has a sender
             $user = $message->from;
             $text = $message->text;
+            var_dump($text);
 
             if($text === "/novagram"){
                 throw new NovaGramException("Sample Exception");

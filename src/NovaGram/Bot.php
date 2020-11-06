@@ -14,6 +14,9 @@ use skrtdev\Telegram\Update;
 use skrtdev\Prototypes\proto;
 
 use skrtdev\async\Pool;
+use Amp\Loop;
+#use Amp\Http\Client\HttpClientBuilder;
+#use Amp\Http\Client\Request;
 
 use Closure;
 use Throwable;
@@ -43,14 +46,13 @@ class Bot {
     private bool $started = false;
     private static bool $shown_license = false;
 
-    private ?array $handlers = [];
-    private ?array $error_handlers = [];
-
     public ?Logger $logger = null;
 
     private ?string $file_sha = null;
 
-    private Pool $pool;
+    private Pool $pool; // TODO MOVE TO DISPATCHER
+
+    private Dispatcher $dispatcher;
 
     public function __construct(string $token, array $settings = [], ?Logger $logger = null) {
         Beta::CheckForUpdates();
@@ -67,7 +69,7 @@ class Bot {
 
         if(!isset($logger)){
             $logger = new Logger("NovaGram");
-            if(Utils::isCLI()) $logger->pushHandler(new StreamHandler(STDERR, Logger::INFO));
+            if(Utils::isCLI()) $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
             else $logger->pushHandler(new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Logger::INFO));
             $logger->debug('Logger automatically replaced by a default one');
         }
@@ -147,6 +149,8 @@ class Bot {
             });
         }
 
+        $this->dispatcher = new Dispatcher($this, $this->settings->async);
+
     }
 
     public function setErrorHandler(...$args){
@@ -155,76 +159,15 @@ class Bot {
     }
 
     public function addErrorHandler(Closure $handler){
-        $this->error_handlers[] = $handler;
-    }
-
-    public function addHandler(...$args){
-        Utils::trigger_error("Using deprecated addHandler, use onUpdate instead", E_USER_DEPRECATED);
-        return $this->onUpdate(...$args);
+        $this->dispatcher->addErrorHandler($handler);
     }
 
     public function onUpdate(Closure $handler){
-        $this->handlers[] = $handler;
-        #return $this->idle();
-    }
-
-
-    protected function isAllowedThrowableType(Throwable $throwable, callable $callable): bool {
-        $reflection = new ReflectionFunction($callable);
-
-        $parameters = $reflection->getParameters();
-
-        if (!isset($parameters[0])) {
-            return false;
-        }
-
-        $firstParameter = $parameters[0];
-
-        if (!$firstParameter) {
-            return true;
-        }
-
-        $type = $firstParameter->getType();
-
-        if (!$type) {
-            return true;
-        }
-
-        if (is_a($throwable, $type->getName())) {
-            return true;
-        }
-
-        return false;
-    }
-
-    protected function handleError(Throwable $e): void {
-        $handled = false;
-        foreach ($this->error_handlers as $handler) {
-            if($this->isAllowedThrowableType($e, $handler)){
-                $handled = true;
-                $handler($e);
-            }
-        }
-        if(!$handled){
-            if(Utils::isCLI()){
-                print(PHP_EOL.$e.PHP_EOL.PHP_EOL);
-            }
-            else{
-                throw $e;
-            }
-        }
-
+        $this->dispatcher->addClosureHandler($handler);
     }
 
     protected function handleUpdate(Update $update): void {
-        foreach ($this->handlers as $handler) {
-            try{
-                $handler($update);
-            }
-            catch(Throwable $e){
-                $this->handleError($e);
-            }
-        }
+        $this->dispatcher->handleUpdate($update);
     }
 
     protected function restartOnChanges(){
@@ -237,32 +180,27 @@ class Bot {
         }
     }
 
+    public function handleClass($class){
+        $this->dispatcher->addClassHandler($class);
+    }
+
     protected function processUpdates($offset = 0){
         Beta::CheckForUpdates();
-        $this->pool->resolveQueue();
         $async = $this->settings->async;
         $params = ['offset' => $offset, 'timeout' => 300];
         $this->logger->debug('Processing Updates (async: '.(int) $async.')', $params);
         $updates = $this->getUpdates($params);
+        $this->logger->debug('Processed Updates (async: '.(int) $async.')', $params);
         $this->restartOnChanges();
         foreach ($updates as $update) {
-            if(!$async){
-                $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
-                $started = hrtime(true)/10**9;
-                $this->handleUpdate($update);
-                $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
-            }
-            else{
-                $this->pool->parallel(function () use ($update) {
-                    #$this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
-                    #$started = hrtime(true)/10**9;
-                    $this->handleUpdate($update);
-                    #$this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
-                });
-            }
-            $offset = $update->update_id+1;
+            $this->logger->info("Update handling started.", ['update_id' => $update->update_id]);
+            $started = hrtime(true)/10**9;
+            $this->handleUpdate($update);
+            $this->logger->info("Update handling finished.", ['update_id' => $update->update_id, 'took' => (((hrtime(true)/10**9)-$started)*1000).'ms']);
 
+            $offset = $update->update_id+1;
         }
+        #Loop::run();
         return $offset;
     }
 
@@ -275,7 +213,7 @@ class Bot {
 
     public function idle(){
         if($this->settings->mode === self::CLI and !$this->started){
-            if(!empty($this->handlers)){
+            if($this->dispatcher->hasHandlers()){
                 $this->deleteWebhook();
                 $this->started = true;
                 $this->showLicense();
@@ -284,6 +222,7 @@ class Bot {
                 }
                 while (true) {
                     $offset = $this->processUpdates($offset ?? 0);
+                    Loop::run();
                 }
             }
             else $this->logger->error("No handler is found, but idle() method has been called");
@@ -291,9 +230,9 @@ class Bot {
     }
 
     public function __destruct(){
-        $this->logger->debug("Triggered destructor");
         if(!$this->started){
-            if(!empty($this->handlers)){
+            $this->logger->debug("Triggered destructor");
+            if($this->dispatcher->hasHandlers()){
                 if($this->settings->mode === self::CLI){
                     $this->logger->debug('Idling by destructor');
                     $this->idle();
@@ -465,6 +404,10 @@ class Bot {
 
     public function getDatabase(): Database{
         return $this->database;
+    }
+
+    public function getPool(): Pool{
+        return $this->pool;
     }
 
     public function __debugInfo() {
