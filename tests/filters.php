@@ -2,7 +2,7 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use skrtdev\NovaGram\BotTest as Bot;
+use skrtdev\NovaGram\Bot;
 use skrtdev\NovaGram\BaseHandler;
 use skrtdev\Telegram\{Update, Message};
 use skrtdev\NovaGram\Exception as NovaGramException;
