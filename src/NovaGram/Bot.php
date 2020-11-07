@@ -215,13 +215,16 @@ class Bot {
     public function idle(){
         if($this->settings->mode === self::CLI and !$this->started){
             if($this->dispatcher->hasHandlers()){
+                $this->logger->debug('Idling...');
                 $this->deleteWebhook();
+                $this->logger->debug('Idling...');
                 $this->started = true;
                 $this->showLicense();
                 if(!isset($this->error_handlers)){
                     $this->logger->error("Error handler is not set.");
                 }
                 while (true) {
+                    $this->logger->debug('in while..');
                     $offset = $this->processUpdates($offset ?? 0);
                     Loop::run();
                 }
@@ -274,7 +277,7 @@ class Bot {
     }
 
     public function APICall(string $method, array $data = [], bool $payload = false, bool $is_debug = false, \Exception $previous_exception = null){
-
+        $this->logger->debug("APICall: $method");
         $data = $this->normalizeRequest($method, $data);
 
         if($this->settings->json_payload){
