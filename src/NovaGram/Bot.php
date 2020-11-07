@@ -83,7 +83,8 @@ class Bot {
             "disable_ip_check" => false,
             "exceptions" => true,
             "async" => true,
-            "restart_on_changes" => false
+            "restart_on_changes" => false,
+            "debug_mode" => "classic", // BC
         ];
 
         foreach ($settings_array as $name => $default){
@@ -143,13 +144,13 @@ class Bot {
             $this->settings->json_payload = false;
         }
 
+        $this->dispatcher = new Dispatcher($this, $this->settings->async);
+
         if($this->settings->debug !== false){
             $this->addErrorHandler(function (Throwable $e) {
                 $this->debug( (string) $e );
             });
         }
-
-        $this->dispatcher = new Dispatcher($this, $this->settings->async);
 
     }
 
@@ -233,6 +234,8 @@ class Bot {
         if(!$this->started){
             $this->logger->debug("Triggered destructor");
             if($this->dispatcher->hasHandlers()){
+                $this->settings->debug_mode = "new";
+
                 if($this->settings->mode === self::CLI){
                     $this->logger->debug('Idling by destructor');
                     $this->idle();
@@ -303,9 +306,9 @@ class Bot {
             $this->logger->debug("Response: ".$response);
             if($is_debug) throw TelegramException::create("[DURING DEBUG] $method", $decoded, $data, $previous_exception);
             $e = TelegramException::create($method, $decoded, $data);
-            if($this->settings->debug){
+            if($this->settings->debug_mode === "classic"){
                 #$this->sendMessage($this->settings->debug, "<pre>".$method.PHP_EOL.PHP_EOL.print_r($data, true).PHP_EOL.PHP_EOL.print_r($decoded, true)."</pre>", ["parse_mode" => "HTML"], false, true);
-                #$this->debug( (string) $e, $previous_exception);
+                $this->debug( (string) $e, $previous_exception);
             }
             if($this->settings->exceptions) throw $e;
             else return (object) $decoded;
