@@ -29,22 +29,18 @@ An example code of a simple bot that just forwards back what you send.
 require __DIR__ . '/vendor/autoload.php';
 
 use skrtdev\NovaGram\Bot;
+use skrtdev\Telegram\Message;
+
 $Bot = new Bot("YOUR_TOKEN", [
     "debug" => CHAT_ID,
     "parse_mode" => "HTML",
 ]);
 
-$Bot->onUpdate(function (Update $update) use ($Bot) {
+$Bot->onMessage(function (Message $message) use ($Bot) {
 
-    if(isset($update->message)){ // update is a message
-        $message = $update->message;
-        $chat = $message->chat;
-
-        if(isset($message->from)){ // message has a sender
-            $user = $message->from;
-
-            $message->forward(); // forward() with no parameters will forward the Message back to the sender
-        }
+    if(isset($message->from)){ // message has a sender
+        
+        $message->forward(); // forward() with no parameters will forward the Message back to the sender
     }
 });
 ```

@@ -54,17 +54,24 @@ function filters(...$args)
     return new Filters($args);
 }
 
-Bot::addMethod("onMessage", function (Filters $filters, Closure $handler) {
-    $this->onUpdate(function (Update $update) use ($filters, $handler) {
+Bot::addMethod("onMessage_", function (Filters $filters, Closure $handler) {
+/*    $this->onUpdate(function (Update $update) use ($filters, $handler) {
         if(!isset($update->message)) return;
         foreach ($filters->getArgs() as $filter) {
             if(!$filter($update->message)) return;
         }
         $handler($update->message);
     });
+    */
+    $this->onMessage(function (Message $message) use ($filters, $handler) {
+        foreach ($filters->getArgs() as $filter) {
+            if(!$filter($message)) return;
+        }
+        $handler($message);
+    });
 });
 
-$Bot = new Bot("722952667:AAFoPOkdyWXTT3j-Efm5PrwDGW20AhB_9T8", [
+$Bot = new Bot("722952667:AAE-N5BNWRdDlAZQuNzUsxc7HKuoYHkyphs", [
     "restart_on_changes" => true,
     #"async" => false
 ]);
@@ -92,16 +99,16 @@ class Handler extends BaseHandler{
 
 #var_dump(Filters::TextMessage() | Filters::TextMessage());
 
-$Bot->onMessage(new Filters(Filters::TextMessage()), function (Message $message) {
+$Bot->onMessage_(new Filters(Filters::TextMessage()), function (Message $message) {
     $message->reply("text message");
 });
 
-$Bot->onMessage(new Filters(Filters::TextRegex('/ciao/')), function (Message $message) {
+$Bot->onMessage_(new Filters(Filters::TextRegex('/ciao/')), function (Message $message) {
     $message->reply("ciao");
 });
 
 
-$Bot->onMessage(new Filters(Filters::commands("start")), function (Message $message) {
+$Bot->onMessage_(new Filters(Filters::commands("start")), function (Message $message) {
     $message->reply("start!");
 });
 

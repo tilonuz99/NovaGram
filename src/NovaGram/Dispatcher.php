@@ -30,21 +30,32 @@ class Dispatcher {
 
     public function handleUpdate(Update $update): void
     {
-        if(!empty($this->closure_handlers)) $this->Bot->getPool()->resolveQueue();
-        foreach ($this->closure_handlers as $handler) {
-            $real_handler = function () use ($handler, $update) {
-                try{
-                    $handler($update);
-                }
-                catch(Throwable $e){
-                    $this->handleError($e);
-                }
-            };
-            if($this->async){
-                $this->Bot->getPool()->parallel($real_handler);
+        if(!empty($this->closure_handlers) && $this->async) $this->Bot->getPool()->resolveQueue();
+        foreach ($this->closure_handlers as $parameter => $handlers) {
+            if($parameter === "update"){
+                $handler_update = $update;
+            }
+            elseif(isset($update->$parameter)){
+                $handler_update = $update->$parameter;
             }
             else{
-                $real_handler();
+                continue;
+            }
+            foreach ($handlers as $handler) {
+                $real_handler = function () use ($handler, $handler_update) {
+                    try{
+                        $handler($handler_update);
+                    }
+                    catch(Throwable $e){
+                        $this->handleError($e);
+                    }
+                };
+                if($this->async){
+                    $this->Bot->getPool()->parallel($real_handler);
+                }
+                else{
+                    $real_handler();
+                }
             }
         }
 
@@ -82,7 +93,7 @@ class Dispatcher {
     {
         $handled = false;
         foreach ($this->error_handlers as $handler) {
-            if($this->isAllowedThrowableType($e, $handler)){
+            if(self::isAllowedThrowableType($e, $handler)){
                 $handled = true;
                 $handler($e);
             }
@@ -98,7 +109,7 @@ class Dispatcher {
 
     }
 
-    protected function isAllowedThrowableType(Throwable $throwable, callable $callable): bool
+    protected static function isAllowedThrowableType(Throwable $throwable, callable $callable): bool
     {
         $reflection = new ReflectionFunction($callable);
 
@@ -127,9 +138,10 @@ class Dispatcher {
         return false;
     }
 
-    public function addClosureHandler(Closure $handler): void
+    public function addClosureHandler(Closure $handler, string $parameter = "update"): void
     {
-        $this->closure_handlers[] = $handler;
+        $this->closure_handlers[$parameter] ??= [];
+        $this->closure_handlers[$parameter][] = $handler;
     }
 
     public function addClassHandler(BaseHandler $handler): void
@@ -145,6 +157,17 @@ class Dispatcher {
     public function hasHandlers(): bool
     {
         return !empty($this->closure_handlers) || !empty($this->class_handlers);
+    }
+
+    public function hasErrorHandlers(): bool
+    {
+        return !empty($this->error_handlers);
+    }
+
+    public static function paramaterToHandler(string $string): string
+    {
+        $str = str_replace('_', '', ucwords($string, '_'));
+        return "on".$str;
     }
 }
 

@@ -26,6 +26,7 @@ use ReflectionFunction;
 class Bot {
 
     use Methods;
+    use HandlersTrait;
     use proto;
 
     const LICENSE = "NovaGram - An Object-Oriented PHP library for Telegram Bots".PHP_EOL."Copyright (c) 2020 Gaetano Sutera <https://github.com/skrtdev>";
@@ -46,7 +47,7 @@ class Bot {
     private bool $started = false;
     private static bool $shown_license = false;
 
-    public ?Logger $logger = null;
+    public ?Logger $logger;
 
     private ?string $file_sha = null;
 
@@ -67,14 +68,6 @@ class Bot {
             $this->pool = new Pool();
         }
 
-        if(!isset($logger)){
-            $logger = new Logger("NovaGram");
-            if(Utils::isCLI()) $logger->pushHandler(new StreamHandler(STDERR, Logger::DEBUG));
-            else $logger->pushHandler(new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Logger::INFO));
-            $logger->debug('Logger automatically replaced by a default one');
-        }
-        $this->logger = $logger;
-
         $settings_array = [
             "json_payload" => true,
             "log_updates" => false,
@@ -84,12 +77,21 @@ class Bot {
             "exceptions" => true,
             "async" => true,
             "restart_on_changes" => false,
+            "logger" => Logger::INFO,
             "debug_mode" => "classic", // BC
         ];
 
         foreach ($settings_array as $name => $default){
             $this->settings->{$name} ??= $default;
         }
+
+        if(!isset($logger)){
+            $logger = new Logger("NovaGram");
+            if(Utils::isCLI()) $logger->pushHandler(new StreamHandler(STDERR, $this->settings->logger));
+            else $logger->pushHandler(new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, $this->settings->logger));
+            $logger->debug('Logger automatically replaced by a default one');
+        }
+        $this->logger = $logger;
 
         if(!isset($this->settings->mode)){
             if($this->settings->disable_webhook){
@@ -113,7 +115,7 @@ class Bot {
                 $this->file_sha = Utils::getFileSHA();
             }
             else{
-                throw new Exception("restart_on_changes can be used only on CLI");
+                $logger->warning("restart_on_changes can be used only on CLI");
             }
         }
 
@@ -123,7 +125,7 @@ class Bot {
             $this->database = $this->db = new Database($this->settings->database);
         }
 
-        $logger->debug("Chosen mode is: ". ($this->settings->mode === self::NONE ? "NONE" :"") . ($this->settings->mode === self::CLI ? "CLI" :"") . ($this->settings->mode === self::WEBHOOK ? "WEBHOOK" :""));
+        $logger->debug("Chosen mode is: ".$this->settings->mode);
 
         if($this->settings->mode === self::WEBHOOK){
             if(!$this->settings->disable_ip_check){
@@ -144,7 +146,7 @@ class Bot {
             $this->settings->json_payload = false;
         }
 
-        $this->dispatcher = new Dispatcher($this, $this->settings->async);
+        $this->dispatcher = new Dispatcher($this, Utils::isCLI() && $this->settings->async);
 
         if($this->settings->debug !== false){
             $this->addErrorHandler(function (Throwable $e) {
@@ -161,10 +163,6 @@ class Bot {
 
     public function addErrorHandler(Closure $handler){
         $this->dispatcher->addErrorHandler($handler);
-    }
-
-    public function onUpdate(Closure $handler){
-        $this->dispatcher->addClosureHandler($handler);
     }
 
     protected function handleUpdate(Update $update): void {
@@ -205,7 +203,7 @@ class Bot {
         return $offset;
     }
 
-    protected function showLicense(): void {
+    protected static function showLicense(): void {
         if(!self::$shown_license){
             print(self::LICENSE.PHP_EOL);
             self::$shown_license = true;
@@ -217,14 +215,12 @@ class Bot {
             if($this->dispatcher->hasHandlers()){
                 $this->logger->debug('Idling...');
                 $this->deleteWebhook();
-                $this->logger->debug('Idling...');
                 $this->started = true;
-                $this->showLicense();
+                self::showLicense();
                 if(!isset($this->error_handlers)){
-                    $this->logger->error("Error handler is not set.");
+                    $this->logger->error("Error handler is not set."); // TODO THIS ERROR IN DISPATCHER
                 }
                 while (true) {
-                    $this->logger->debug('in while..');
                     $offset = $this->processUpdates($offset ?? 0);
                     Loop::run();
                 }
@@ -373,18 +369,8 @@ class Bot {
 
     }
 
-    public static function curl(string $url){
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
-        return $response;
-    }
-
-
     public static function getUsernameDC(string $username){
-        preg_match('/cdn(\d)/', self::curl("https://t.me/$username"), $matches);
+        preg_match('/cdn(\d)/', Utils::curl("https://t.me/$username"), $matches);
         return isset($matches[1]) ? (int) $matches[1] : false;
     }
 
