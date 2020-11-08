@@ -32,7 +32,7 @@ class Exception extends \Exception{
                 break;
 
             case 429:
-                return new FloodwaitException(...$args);
+                return new TooManyRequestsException(...$args);
                 break;
 
             case 502:
