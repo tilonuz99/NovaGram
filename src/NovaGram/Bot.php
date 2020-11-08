@@ -47,7 +47,7 @@ class Bot {
     private bool $started = false;
     private static bool $shown_license = false;
 
-    public ?Logger $logger;
+    public Logger $logger;
 
     private ?string $file_sha = null;
 
@@ -298,7 +298,7 @@ class Bot {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $response = curl_exec($ch);
         curl_close($ch);
-        if(is_bool($response)) return $this->APICall(...func_get_args());
+        #if(is_bool($response)) return $this->APICall(...func_get_args());
         $decoded = json_decode($response, true);
 
         if($decoded['ok'] !== true){

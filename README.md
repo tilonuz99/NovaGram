@@ -14,7 +14,7 @@ An elegant, Object-Oriented, reliable PHP Telegram Bot Interface
 - [x] New, more speficic exceptions
 - [x] Changed behaviour of debug setting: now it create an error handler
 - [ ] auto handling of FloodwaitException with a treshold?
-- [ ] ? more filters (onMessage, onCallbackQuery)
+- [x] ? more handlers (onMessage, onCallbackQuery)
 
 ### Installation via [Composer](https://getcomposer.org)
 

@@ -56,7 +56,15 @@ function f($value='')
 
 function processUpdates($value='')
 {
-    var_dump(f());
+    $f = function ()
+    {
+        $foo = new Foo();
+        for ($i=0; $i < 50; $i++) {
+            $r1 = $foo->delegationWithCallable();
+        }
+        Loop::run();
+    };
+    var_dump($f());
 }
 
 function idle($value='')
