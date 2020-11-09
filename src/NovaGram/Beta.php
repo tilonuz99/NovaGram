@@ -32,7 +32,7 @@ class Beta{
     }
 
     public static function getPackageFromPackagist(){
-        $json = Bot::curl("https://repo.packagist.org/p/skrtdev/novagram.json");
+        $json = Utils::curl("https://repo.packagist.org/p/skrtdev/novagram.json");
         $package = json_decode($json, true)['packages']['skrtdev/novagram'];
         return $package;
     }
