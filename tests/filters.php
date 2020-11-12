@@ -3,6 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use skrtdev\NovaGram\Bot;
+use Monolog\Logger;
 use skrtdev\NovaGram\BaseHandler;
 use skrtdev\Telegram\{Update, Message};
 use skrtdev\NovaGram\Exception as NovaGramException;
@@ -73,6 +74,7 @@ Bot::addMethod("onMessage_", function (Filters $filters, Closure $handler) {
 
 $Bot = new Bot("722952667:AAE-N5BNWRdDlAZQuNzUsxc7HKuoYHkyphs", [
     "restart_on_changes" => true,
+    "logger" => Logger::DEBUG,
     #"async" => false
 ]);
 
@@ -85,7 +87,7 @@ class Handler extends BaseHandler{
             $message = $update->message;
             $chat = $message->chat;
 
-            #yield delay(1000);
+            #yield delay(1);
             #print("there");
             #sleep(1);
             $message->reply("afammoc from class");
@@ -100,7 +102,7 @@ class Handler extends BaseHandler{
 #var_dump(Filters::TextMessage() | Filters::TextMessage());
 
 $Bot->onMessage_(new Filters(Filters::TextMessage()), function (Message $message) {
-    $message->reply("text message");
+    #$message->reply("text message");
 });
 
 $Bot->onMessage_(new Filters(Filters::TextRegex('/ciao/')), function (Message $message) {

@@ -12,6 +12,13 @@ class Foo
     public function delegationWithCoroutine()/*: Amp\Promise*/
     {
         #return new Amp\Coroutine($this->bar());
+        Amp\call(function () {
+            return yield from $this->bar();
+        });
+        return;
+        Amp\call([$this, 'bar']);
+        return;
+        return Amp\asyncCall([$this, 'bar']);
         return Amp\asyncCoroutine([$this, 'bar'])();
     }
 
@@ -29,13 +36,27 @@ class Foo
 
     public function bar(): Generator
     {
+        throw new \Exception();
         yield new Amp\Success(1);
         yield new Amp\Success(2);
-        yield delay(1000);
-        print("ae\n");
+        print("ae1\n");
+        yield delay(100);
+        print("ae2\n");
         return yield new Amp\Success(3);
     }
 }
+
+$foo = new Foo();
+var_dump(Amp\call([$foo, 'bar']));
+Amp\call([$foo, 'bar']);
+Amp\call([$foo, 'bar']);
+Amp\call([$foo, 'bar']);
+Amp\call([$foo, 'bar']);
+
+#Amp\Loop::run();
+echo "kek";
+
+/*
 
 Amp\Loop::run(function () {
     $foo = new Foo();
@@ -51,5 +72,5 @@ Amp\Loop::run(function () {
 });
 
 echo "kek";
-
+*/
 ?>
